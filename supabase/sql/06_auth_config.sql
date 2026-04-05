@@ -1,0 +1,253 @@
+-- ============================================================================
+-- SALIENA APP - AUTHENTICATION CONFIGURATION
+-- ============================================================================
+-- Description: Email OTP authentication setup and configuration
+-- Version: 1.0
+-- Run Order: 6 (Can be run anytime after 02_functions.sql)
+-- ============================================================================
+-- 
+-- IMPORTANT: Most auth configuration is done in Supabase Dashboard.
+-- This file contains SQL that supports the email OTP authentication flow.
+-- 
+-- Authentication Method: Email OTP Only (No passwords)
+-- - Users sign up with email + full name
+-- - 6-digit OTP code sent to email for verification
+-- - No passwords are stored or required
+-- 
+-- ============================================================================
+
+-- ============================================================================
+-- DASHBOARD CONFIGURATION REQUIRED
+-- ============================================================================
+-- 
+-- You MUST configure these settings in Supabase Dashboard:
+-- 
+-- 1. Go to: Authentication > Providers > Email
+--    ✓ Enable Email provider
+--    ✓ Enable "Confirm email"
+--    ✓ Enable "Secure email change"
+-- 
+-- 2. Go to: Authentication > Email Templates
+--    Customize "Magic Link" template to show the OTP code:
+--    
+--    Subject: Your Saliena verification code
+--    
+--    Body:
+--    <h2>Your verification code is: {{ .Token }}</h2>
+--    <p>This code will expire in 1 hour.</p>
+--    <p>If you didn't request this code, please ignore this email.</p>
+-- 
+-- 3. Go to: Authentication > Settings
+--    - Minimum Password Length: Not applicable (OTP only)
+--    - OTP Expiry: 3600 seconds (1 hour)
+--    - OTP Length: 6 digits (default)
+-- 
+-- 4. Go to: Authentication > URL Configuration
+--    - Site URL: Your app's URL (e.g., https://yourapp.com)
+--    - Redirect URLs: Add your app's deep link URLs
+-- 
+-- ============================================================================
+
+-- ============================================================================
+-- SQL CONFIGURATION
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- Ensure no password-related columns exist in profiles
+-- ----------------------------------------------------------------------------
+-- Remove any legacy password fields if they exist
+ALTER TABLE public.profiles 
+  DROP COLUMN IF EXISTS password_hash,
+  DROP COLUMN IF EXISTS password_salt,
+  DROP COLUMN IF EXISTS password_updated_at CASCADE;
+
+-- ----------------------------------------------------------------------------
+-- Add documentation to profiles table
+-- ----------------------------------------------------------------------------
+COMMENT ON TABLE public.profiles IS 
+'User profiles for Saliena Support. Authentication uses email OTP only. Verification is automatic via email_confirmed_at.';
+
+COMMENT ON COLUMN public.profiles.is_verified IS 
+'Automatically synced with auth.users.email_confirmed_at. Users cannot manually change this.';
+
+COMMENT ON COLUMN public.profiles.two_factor_enabled IS 
+'DEPRECATED: Two-factor authentication is not used. Email OTP serves as the primary authentication method.';
+
+-- ============================================================================
+-- VERIFICATION TRIGGERS (ALREADY CREATED IN 02_functions.sql)
+-- ============================================================================
+-- 
+-- The following triggers ensure verification status stays in sync:
+-- 
+-- 1. auto_verify_profile_trigger
+--    - Runs on INSERT or UPDATE of profiles
+--    - Syncs is_verified with auth.users.email_confirmed_at
+-- 
+-- 2. prevent_verified_change_trigger  
+--    - Runs on UPDATE of profiles
+--    - Prevents non-admin users from manually changing is_verified
+-- 
+-- These triggers are already created by 02_functions.sql
+-- 
+-- ============================================================================
+
+-- ============================================================================
+-- HELPER FUNCTIONS FOR AUTH (ALREADY CREATED IN 02_functions.sql)
+-- ============================================================================
+-- 
+-- public.is_email_verified(user_id UUID)
+--   - Returns TRUE if user's email is confirmed
+--   - Can be called by authenticated or anonymous users
+-- 
+-- public.handle_new_user()
+--   - Automatically creates profile on user signup
+--   - Triggered by INSERT on auth.users
+-- 
+-- These functions are already created by 02_functions.sql
+-- 
+-- ============================================================================
+
+-- ============================================================================
+-- AUTHENTICATION FLOW
+-- ============================================================================
+-- 
+-- SIGN UP:
+-- 1. User enters email and full_name in app
+-- 2. App calls: supabase.auth.signUp({
+--      email: email,
+--      password: randomPassword,  // Auto-generated, never shown to user
+--      options: {
+--        data: { full_name: fullName },
+--        emailRedirectTo: 'your-app://auth-callback'
+--      }
+--    })
+-- 3. Supabase sends 6-digit OTP to user's email
+-- 4. User enters OTP code in app
+-- 5. App calls: supabase.auth.verifyOtp({
+--      email: email,
+--      token: otpCode,
+--      type: 'email'
+--    })
+-- 6. User is signed in and profile is created automatically
+-- 
+-- SIGN IN:
+-- 1. User enters email in app
+-- 2. App calls: supabase.auth.signInWithOtp({
+--      email: email,
+--      options: {
+--        emailRedirectTo: 'your-app://auth-callback',
+--        shouldCreateUser: false
+--      }
+--    })
+-- 3. Supabase sends 6-digit OTP to user's email
+-- 4. User enters OTP code in app
+-- 5. App calls: supabase.auth.verifyOtp({
+--      email: email,
+--      token: otpCode,
+--      type: 'email'
+--    })
+-- 6. User is signed in
+-- 
+-- ============================================================================
+
+-- ============================================================================
+-- TESTING EMAIL OTP
+-- ============================================================================
+-- 
+-- Test the authentication flow:
+-- 
+-- 1. Try signing up with a new email
+--    - Verify you receive the OTP email
+--    - Verify the profile is created automatically
+--    - Verify is_verified becomes true after OTP verification
+-- 
+-- 2. Try signing in with an existing email
+--    - Verify you receive the OTP email
+--    - Verify you can sign in with the OTP
+-- 
+-- 3. Try invalid OTP codes
+--    - Verify authentication fails
+--    - Verify you get appropriate error messages
+-- 
+-- 4. Test OTP expiry
+--    - Wait for OTP to expire (1 hour)
+--    - Verify expired OTP is rejected
+--    - Request a new OTP
+-- 
+-- ============================================================================
+
+-- ============================================================================
+-- SECURITY CONSIDERATIONS
+-- ============================================================================
+-- 
+-- 1. OTP Rate Limiting:
+--    - Configure rate limiting in Supabase Dashboard
+--    - Prevent brute force attacks on OTP codes
+-- 
+-- 2. Email Provider:
+--    - Use a reliable email service (SendGrid, AWS SES, etc.)
+--    - Configure SPF, DKIM, DMARC records for better deliverability
+-- 
+-- 3. OTP Code Security:
+--    - 6-digit codes provide 1,000,000 combinations
+--    - With rate limiting, this is sufficient security
+--    - Codes expire after 1 hour
+-- 
+-- 4. Account Takeover Prevention:
+--    - OTP is sent to email (something you have)
+--    - Only the email owner can access the code
+--    - Email acts as the authentication factor
+-- 
+-- ============================================================================
+
+-- ============================================================================
+-- TROUBLESHOOTING
+-- ============================================================================
+-- 
+-- Common Issues:
+-- 
+-- 1. "Email not confirmed" error:
+--    - User needs to verify OTP code
+--    - Check if OTP email was delivered
+--    - Check spam/junk folder
+-- 
+-- 2. Profile not created on signup:
+--    - Verify handle_new_user trigger is active
+--    - Check Supabase logs for errors
+--    - Run: SELECT * FROM auth.users; to see auth records
+-- 
+-- 3. is_verified not updating:
+--    - Verify auto_verify_profile trigger is active
+--    - Check if email_confirmed_at is set in auth.users
+--    - Manually trigger: UPDATE profiles SET updated_at = NOW();
+-- 
+-- 4. OTP emails not sending:
+--    - Check email configuration in Supabase Dashboard
+--    - Verify email templates are properly configured
+--    - Check Supabase logs for email delivery errors
+-- 
+-- ============================================================================
+
+-- ============================================================================
+-- AUTHENTICATION CONFIGURATION COMPLETE
+-- ============================================================================
+-- 
+-- Required Dashboard Steps:
+-- ☐ Enable Email provider with "Confirm email"
+-- ☐ Customize "Magic Link" email template
+-- ☐ Set OTP expiry to 3600 seconds
+-- ☐ Configure Site URL and Redirect URLs
+-- ☐ Test signup and signin flows
+-- 
+-- SQL Steps (Already Done):
+-- ✓ Created handle_new_user function and trigger
+-- ✓ Created is_email_verified function
+-- ✓ Created auto_verify_profile trigger
+-- ✓ Created prevent_verified_change trigger
+-- 
+-- Next Steps:
+-- 1. Configure email settings in Supabase Dashboard
+-- 2. Test authentication flow from Flutter app
+-- 3. Monitor Supabase logs for any issues
+-- 
+-- ============================================================================

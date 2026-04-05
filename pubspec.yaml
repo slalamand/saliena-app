@@ -1,0 +1,141 @@
+name: saliena_app
+description: "Saliena Support - Municipality Issue Reporting App"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # UI
+  cupertino_icons: ^1.0.8
+  google_fonts: ^6.2.1
+  flutter_animate: ^4.5.0
+  shimmer: ^3.0.0
+  flutter_svg: ^2.0.10+1
+
+  # State Management
+  flutter_bloc: ^8.1.6
+  equatable: ^2.0.5
+
+  # Dependency Injection
+  get_it: ^8.0.2
+
+  # Navigation
+  go_router: ^14.6.2
+
+  # Backend (Supabase - temporary, swappable)
+  supabase_flutter: ^2.8.1
+
+  # Network
+  internet_connection_checker_plus: ^2.5.2
+
+  # Storage
+  flutter_secure_storage: ^9.2.2
+  hive_flutter: ^1.1.0
+
+  # Environment
+  flutter_dotenv: ^5.2.1
+
+  # Location & Maps
+  geolocator: ^13.0.2
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  geocoding: ^3.0.0
+  flutter_map_cache: ^1.5.1
+  dio_cache_interceptor: ^3.5.0
+  dio_cache_interceptor_hive_store: ^3.2.2
+  path_provider: ^2.1.4
+
+  # Camera & Image
+  image_picker: ^1.1.2
+  image: ^4.3.0
+  video_player: ^2.9.2
+  exif: ^3.3.0
+
+  # Utilities
+  intl: ^0.20.1
+  uuid: ^4.5.1
+  logger: ^2.5.0
+  url_launcher: ^6.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  bloc_test: ^9.1.7
+  mocktail: ^1.0.4
+  flutter_launcher_icons: ^0.14.3
+  flutter_native_splash: ^2.4.4
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icons/Light-Logo-Saliena.png"
+  image_path_dark: "assets/icons/Dark-Logo-Saliena.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/icons/Light-Logo-Saliena.png"
+  adaptive_icon_background_dark: "#1C1C1E"
+  adaptive_icon_foreground_dark: "assets/icons/Dark-Logo-Saliena.png"
+  web:
+    generate: true
+    image_path: "assets/icons/Light-Logo-Saliena.png"
+  windows:
+    generate: true
+    image_path: "assets/icons/Light-Logo-Saliena.png"
+    icon_size: 48
+  macos:
+    generate: true
+    image_path: "assets/icons/Light-Logo-Saliena.png"
+
+flutter_native_splash:
+  color: "#003A70"
+  color_dark: "#1C1C1E"
+  image: "assets/icons/Light-Logo-Saliena.png"
+  image_dark: "assets/icons/Dark-Logo-Saliena.png"
+  
+  ios_content_mode: center
+  
+  android_12:
+    color: "#003A70"
+    color_dark: "#1C1C1E"
+    image: "assets/icons/Light-Logo-Saliena.png"
+    image_dark: "assets/icons/Dark-Logo-Saliena.png"
+    icon_background_color: "#003A70"
+    icon_background_color_dark: "#1C1C1E"
+  
+  android: true
+  ios: true
+  web: true
+
+# For information on the generic Dart part of this file, see the
+# following page: https://dart.dev/tools/pub/pubspec
+
+# The following section is specific to Flutter packages.
+flutter:
+  uses-material-design: true
+  generate: true
+
+  assets:
+    - .env
+    - assets/images/
+    - assets/icons/
+
+  # Using system fonts - SF Pro on iOS, Roboto on Android
+  # To use custom fonts, add font files to assets/fonts/ and uncomment below:
+  # fonts:
+  #   - family: SF Pro Display
+  #     fonts:
+  #       - asset: assets/fonts/SFProDisplay-Regular.ttf
+  #       - asset: assets/fonts/SFProDisplay-Medium.ttf
+  #         weight: 500
+  #       - asset: assets/fonts/SFProDisplay-Semibold.ttf
+  #         weight: 600
+  #       - asset: assets/fonts/SFProDisplay-Bold.ttf
+  #         weight: 700

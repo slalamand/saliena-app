@@ -1,0 +1,354 @@
+{
+  "@@locale": "en",
+  "appName": "Saliena Support",
+  "welcome": "Welcome to Saliena Support",
+  "welcomeSubtitle": "Report issues in your municipality",
+  "municipality": "Municipality",
+  "getStarted": "Get Started",
+
+  "login": "Log In",
+  "signIn": "Sign In",
+  "signup": "Sign Up",
+  "email": "Email",
+  "password": "Password",
+  "confirmPassword": "Confirm Password",
+  "phone": "Phone Number",
+  "fullName": "Full Name",
+  "forgotPassword": "Forgot Password?",
+  "noAccount": "Don't have an account?",
+  "hasAccount": "Already have an account?",
+  "welcomeBack": "Welcome Back",
+  "signInSubtitle": "Sign in to manage your municipality requests",
+  "createAccount": "Create Account",
+  "joinCommunity": "Join Saliena community",
+  "municipalityPortal": "Municipality Portal",
+  "resetPassword": "Reset Password",
+  "resetPasswordSubtitle": "Enter your email to receive reset instructions",
+  "sendResetLink": "Send Reset Link",
+  "checkEmail": "Check your email",
+  "resetLinkSent": "We have sent a password reset link to {email}",
+  "@resetLinkSent": {
+    "placeholders": {
+      "email": {"type": "String"}
+    }
+  },
+  "backToSignIn": "Back to Sign In",
+  "emailAddress": "Email address",
+  "phoneNumber": "Phone Number",
+  "address": "Residential Address",
+  "addressHint": "Street, City, Postal Code",
+  "termsAgreement": "By creating an account, you agree to our Terms of Service and Privacy Policy",
+  "emailRequired": "Please enter your email",
+  "emailInvalid": "Please enter a valid email",
+  "passwordRequired": "Please enter your password",
+  "passwordMinLength": "Password must be at least {length} characters",
+  "@passwordMinLength": {
+    "placeholders": {
+      "length": {"type": "int"}
+    }
+  },
+  "passwordUppercase": "Password must contain an uppercase letter",
+  "passwordNumber": "Password must contain a number",
+  "nameRequired": "Please enter your full name",
+  "nameMinLength": "Name must be at least 2 characters",
+  "phoneRequired": "Please enter your phone number",
+  "phoneInvalid": "Please enter a valid phone number",
+  "confirmPasswordRequired": "Please confirm your password",
+  "passwordsDoNotMatch": "Passwords do not match",
+  "signInWith": "Sign in with {provider}",
+  "@signInWith": {
+    "placeholders": {
+      "provider": {"type": "String"}
+    }
+  },
+
+  "verifyPhone": "Verify Email",
+  "verifyPhoneSubtitle": "Enter the code sent to {email}",
+  "@verifyPhoneSubtitle": {
+    "placeholders": {
+      "email": {"type": "String"}
+    }
+  },
+  "otpCode": "Verification Code",
+  "resendCode": "Resend Code",
+  "resendCodeIn": "Resend code in {seconds}s",
+  "@resendCodeIn": {
+    "placeholders": {
+      "seconds": {"type": "int"}
+    }
+  },
+
+  "setup2FA": "Set Up Two-Factor Authentication",
+  "setup2FASubtitle": "Scan this QR code with your authenticator app",
+  "enter2FACode": "Enter the 6-digit code from your app",
+  "verify": "Verify",
+
+  "home": "Home",
+  "map": "Map",
+  "report": "Report",
+  "profile": "Profile",
+  "settings": "Settings",
+
+  "createReport": "Create Report",
+  "reportTitle": "Title",
+  "reportTitleHint": "Brief description of the issue",
+  "reportDescription": "Description",
+  "reportDescriptionHint": "Provide more details about the issue",
+  "takePhoto": "Take Photo",
+  "choosePhoto": "Choose from Gallery",
+  "location": "Location",
+  "locationDetected": "Location detected automatically",
+  "submit": "Submit",
+  "submitting": "Submitting...",
+
+  "reportStatus": "Status",
+  "statusPending": "Pending",
+  "statusInProgress": "In Progress",
+  "statusFixed": "Fixed",
+  "markAsFixed": "Mark as Fixed",
+  "reportedBy": "Reported by {name}",
+  "@reportedBy": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "reportedOn": "Reported on {date}",
+  "@reportedOn": {
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "fixedBy": "Fixed by {name}",
+  "@fixedBy": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+
+  "myReports": "My Reports",
+  "communityReports": "Community Reports",
+  "allReports": "All Reports",
+  "noReports": "No reports yet",
+  "noReportsSubtitle": "Be the first to report an issue in your area",
+
+  "language": "Language",
+  "english": "English",
+  "latvian": "Latvian",
+  "russian": "Russian",
+
+  "notifications": "Notifications",
+  "security": "Security",
+  "about": "About",
+  "logout": "Log Out",
+  "logoutConfirm": "Are you sure you want to log out?",
+  "cancel": "Cancel",
+  "confirm": "Confirm",
+  "delete": "Delete",
+  "save": "Save",
+  "edit": "Edit",
+  "close": "Close",
+  "retry": "Retry",
+  "loading": "Loading...",
+
+  "errorGeneric": "Something went wrong. Please try again.",
+  "errorNetwork": "No internet connection. Please check your network.",
+  "errorAuth": "Authentication failed. Please try again.",
+  "errorPermission": "You don't have permission to perform this action.",
+  "errorNotFound": "The requested resource was not found.",
+  "errorValidation": "Please check your input and try again.",
+
+  "permissionCamera": "Camera permission is required to take photos",
+  "permissionLocation": "Location permission is required to report issues",
+  "permissionStorage": "Storage permission is required to save photos",
+  "grantPermission": "Grant Permission",
+
+  "verificationPending": "Verification Pending",
+  "verificationPendingSubtitle": "Your account is being verified as a Saliena resident. This usually takes 1-2 business days.",
+
+  "twoFactorAuth": "Two-Factor Authentication",
+  "twoFactorAuthSubtitle": "Enter the code from your authenticator app",
+  "verifyPhoneNumber": "Verify Email",
+  "verifyPhoneNumberSubtitle": "Enter the verification code sent to your email",
+  "checkYourPhone": "Check Your Email",
+  "checkYourPhoneDesc": "A verification code has been sent to your email",
+  "codeSentTo": "Code Sent To",
+  "codeSentToDesc": "Enter the 6-digit code sent via email:",
+  "enterVerificationCode": "Enter Verification Code",
+  "enterVerificationCodeDesc": "Enter the 6-digit code from your email:",
+  "verifyCode": "Verify Code",
+  "useDifferentAccount": "Use a different account",
+
+  "accountInfo": "Account Information",
+  "memberSince": "Member since",
+  "editProfile": "Edit Profile",
+  "changePassword": "Change Password",
+  "theme": "Theme",
+  "themeSystem": "System",
+  "themeLight": "Light",
+  "themeDark": "Dark",
+  "helpSupport": "Help & Support",
+  "filterReports": "Filter Reports",
+  "applyFilters": "Apply Filters",
+  "unknownLocation": "Unknown location",
+  "gettingLocation": "Getting location...",
+  "notSet": "Not set",
+  "verified": "Verified",
+  "pending": "Pending",
+  "today": "Today",
+  "yesterday": "Yesterday",
+  "daysAgo": "{days} days ago",
+  "@daysAgo": {
+    "placeholders": {
+      "days": {"type": "int"}
+    }
+  },
+  "chooseTheme": "Choose Theme",
+  "reportIssue": "Report Issue",
+  "addPhoto": "Add a Photo",
+  "addPhotoSubtitle": "Take or select a photo of the issue you want to report",
+  "confirmLocation": "Confirm Location",
+  "confirmLocationSubtitle": "Drag the map to adjust the exact location",
+  "addDetails": "Add Details",
+  "addDetailsSubtitle": "Describe the issue to help us understand the problem",
+  "reportSummary": "Report Summary",
+  "photoAdded": "Photo added",
+  "locationNotSet": "Location not set",
+  "back": "Back",
+  "continueStep": "Continue",
+  "submitReport": "Submit Report",
+  "reportsFeed": "Reports Feed",
+  "viewOnMap": "View on Map",
+  "deleteReport": "Delete Report",
+  "markAsInProgress": "Mark as In Progress",
+  "tapToAddPhoto": "Tap to add photo",
+  "takePhotoOrGallery": "Take a photo or choose from gallery",
+  "reportSubmittedSuccess": "Report submitted successfully!",
+  "photoRequired": "Please add a photo of the issue",
+  "locationRequired": "Location is required",
+  "photo": "Photo",
+  "details": "Details",
+  "useMyLocation": "Use my location",
+  "tapToSelectLocation": "Tap on the map to select location",
+  "tapToReportNewIssue": "Tap to report a new issue",
+  "viewAll": "View All",
+  "verifyingLocation": "Verifying location...",
+  "locationRequired": "Location Required",
+  "outsideServiceArea": "Outside Service Area",
+  "locationPermissionDenied": "Location permission denied. We need your location to verify residency.",
+  "locationServicesDisabled": "Location services are disabled. Please enable GPS to continue.",
+  "signupRestrictedToResidents": "Sign-up is restricted to Saliena residents only.",
+  "openSettings": "Open Settings",
+  "enableGPS": "Enable GPS",
+  "accountDeleted": "Account deleted successfully",
+  "accountDeletedMessage": "Your account has been permanently deleted.",
+  "deleteAccount": "Delete Account",
+  "deleteAccountConfirm": "Are you sure you want to delete your account? This action cannot be undone.",
+  "deleteAccountWarning": "All your data will be permanently deleted.",
+  "signOut": "Sign Out",
+  "signOutConfirm": "Are you sure you want to sign out?",
+  "preferredLanguage": "Preferred Language",
+  "personalInformation": "Personal Information",
+  "firstName": "First Name",
+  "lastName": "Last Name",
+  "mobileNumber": "Mobile Number",
+  "residentialAddress": "Residential Address",
+  "accountActions": "Account",
+  "danger": "Danger Zone",
+  "addMedia": "Add Media",
+  "addMediaOptional": "Add Media (Optional)",
+  "addMediaSubtitle": "Add up to {maxPhotos} photos and 1 video ({maxSeconds} sec max), or skip to continue without media",
+  "@addMediaSubtitle": {
+    "placeholders": {
+      "maxPhotos": {"type": "int"},
+      "maxSeconds": {"type": "int"}
+    }
+  },
+  "addMoreMedia": "Add more",
+  "captureWithCamera": "Capture with camera (up to {maxPhotos} photos)",
+  "@captureWithCamera": {
+    "placeholders": {
+      "maxPhotos": {"type": "int"}
+    }
+  },
+  "selectFromGallery": "Select from gallery (up to {maxPhotos} photos)",
+  "@selectFromGallery": {
+    "placeholders": {
+      "maxPhotos": {"type": "int"}
+    }
+  },
+  "chooseVideo": "Choose Video",
+  "selectShortVideo": "Select a short video ({maxSeconds} seconds max)",
+  "@selectShortVideo": {
+    "placeholders": {
+      "maxSeconds": {"type": "int"}
+    }
+  },
+  "noMediaUploaded": "No media uploaded",
+  "reportDetails": "Report Details",
+  "roleResident": "Resident",
+  "roleWorker": "Worker",
+  "roleOfficeAdmin": "Office Admin",
+  "deleteReportConfirm": "Are you sure you want to delete this report? This action cannot be undone.",
+  "reportDeleted": "Report deleted successfully",
+  "reporterInfo": "Reporter Information",
+  "reporterFullName": "Full Name",
+  "reporterPhoneNumber": "Phone Number",
+  "reports": "Reports",
+  "locationFromPhoto": "Location extracted from photo GPS",
+  "locationFromDevice": "Using your current device location",
+  "locationManual": "Location adjusted manually",
+  "dragToAdjust": "Drag the map to adjust location",
+  "profileUpdated": "Profile updated successfully",
+  "tapToViewAndRetry": "Tap to view and retry",
+  "issues": "Issues",
+  "aboutSaliena": "About Saliena",
+  "developer": "Developer",
+  "contact": "Contact",
+  "website": "Website",
+  "legal": "Legal",
+  "termsOfService": "Terms of Service",
+  "privacyPolicy": "Privacy Policy",
+  "openSourceLicenses": "Open Source Licenses",
+  "contactUs": "Contact Us",
+  "emailSupport": "Email Support",
+  "phoneSupport": "Phone Support",
+  "frequentlyAskedQuestions": "Frequently Asked Questions",
+  "supportHours": "Support Hours",
+  "noMedia": "No Media",
+  "areYouSureSubmitWithoutMedia": "Are you sure you want to submit without photos or video?",
+  "submitAnyway": "Submit Anyway",
+  "pleaseEnterTitle": "Please enter a title",
+  "describeTheIssue": "Describe the issue",
+  "noInternetConnection": "No internet connection",
+  "reportDataNotFound": "Report data not found",
+  "deleteReport": "Delete Report",
+  "deleteReportFromQueue": "Delete \"{title}\" from queue?",
+  "@deleteReportFromQueue": {
+    "placeholders": {
+      "title": {"type": "String"}
+    }
+  },
+  "nameSurname": "Name Surname",
+  "mobile": "Mobile",
+  "recordVideo": "Record Video",
+  "recordVideoWithDuration": "Record Video ({maxSeconds}s max)",
+  "@recordVideoWithDuration": {
+    "placeholders": {
+      "maxSeconds": {"type": "int"}
+    }
+  },
+  "locationFromDeviceGPS": "Location from device GPS",
+  "maximumPhotosAllowed": "Maximum {maxPhotos} photos allowed",
+  "@maximumPhotosAllowed": {
+    "placeholders": {
+      "maxPhotos": {"type": "int"}
+    }
+  },
+  "onlyOneVideoAllowed": "Only 1 video allowed per report",
+  "onlyMorePhotosAllowed": "Only {remaining} more photos allowed. Added first {remaining}.",
+  "@onlyMorePhotosAllowed": {
+    "placeholders": {
+      "remaining": {"type": "int"}
+    }
+  }
+}
