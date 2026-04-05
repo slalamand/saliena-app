@@ -55,6 +55,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthCheckRequested event,
     Emitter<AuthState> emit,
   ) async {
+    // Already authenticated — skip the re-check entirely.
+    // Without this guard, the auth state stream firing during a sign-in
+    // (e.g. verifyOTP triggering onAuthStateChange) queues a redundant
+    // AuthCheckRequested that emits AuthLoading after AuthAuthenticated,
+    // which makes GoRouter think the user is unauthenticated and bounces
+    // them back to the login screen in a loading-forever loop.
+    if (state is AuthAuthenticated) return;
+
     if (state is! AuthLoading) {
       emit(const AuthLoading(message: 'Checking authentication...'));
     }
@@ -326,11 +334,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) {
     debugPrint('=== _onAuthStateChanged: isAuthenticated=${event.isAuthenticated}, currentState=${state.runtimeType}');
     
-    // Session exists → trigger auth check to load user and go to app
+    // Session active: only trigger an auth check when we are genuinely idle
+    // (not already loading or authenticated). This prevents a race condition
+    // where verifyOTP inside signInAsVerifiedUser fires an auth state change,
+    // the subscription queues AuthCheckRequested, and that check later emits
+    // AuthLoading which causes GoRouter to redirect back to login.
     if (event.isAuthenticated) {
-      // Always trigger auth check when session becomes valid
-      // This handles post-OTP verification automatically
-      if (state is! AuthAuthenticated) {
+      if (state is! AuthAuthenticated && state is! AuthLoading) {
         debugPrint('=== Session established, triggering auth check');
         add(const AuthCheckRequested());
       }
