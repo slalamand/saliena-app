@@ -99,12 +99,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         return;
       }
       
-      // Edge Function failed — log the error and show it to the user
-      debugPrint('=== Verified user sign-in failed: ${signInResult.failure.message}');
-      emit(AuthError(
-        message: 'Auto sign-in failed: ${signInResult.failure.message}. Please contact support.',
-        code: signInResult.failure.code,
-      ));
+      // Edge Function failed — fall back to normal OTP flow so the user isn't blocked.
+      debugPrint('=== Verified user sign-in failed (falling back to OTP): ${signInResult.failure.message}');
+      emit(const AuthLoading(message: 'Sending verification code...'));
+      final otpResult = await _authRepository.sendEmailOtp(event.email);
+      if (otpResult.isSuccess) {
+        emit(AuthAwaitingOtpVerification(email: event.email));
+      } else {
+        emit(AuthError(
+          message: 'Sign-in failed. Please try again or contact support.',
+          code: otpResult.failure.code,
+        ));
+      }
       return;
     }
 
