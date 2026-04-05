@@ -449,7 +449,8 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
   Future<UserModel> signInAsVerifiedUser(String email) async {
     try {
       // Call the Edge Function — it uses the service-role key server-side
-      // to generate a magic-link token and returns it.
+      // to create a real session via admin.createSession() and returns the
+      // refresh token. This completely avoids the OTP rate limiter.
       final response = await _client.functions.invoke(
         'auto_sign_in',
         body: {'email': email.toLowerCase().trim()},
@@ -464,28 +465,25 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
         );
       }
 
-      final token = data['token'] as String?;
-      if (token == null || token.isEmpty) {
+      final refreshToken = data['refresh_token'] as String?;
+      if (refreshToken == null || refreshToken.isEmpty) {
         throw const app_exceptions.AppAuthException(
-          message: 'Invalid token returned from server',
+          message: 'Invalid session returned from server',
         );
       }
 
-      // Exchange the magic-link token for a real Supabase session.
-      final verifyResponse = await _client.auth.verifyOTP(
-        email: email.toLowerCase().trim(),
-        token: token,
-        type: OtpType.magiclink,
-      );
+      // Exchange the refresh token for a live session.
+      // setSession() hits /auth/v1/token?grant_type=refresh_token which is
+      // NOT subject to the OTP 60-second rate limit — no more "wait 58 s" error.
+      final sessionResponse = await _client.auth.setSession(refreshToken);
 
-      if (verifyResponse.session == null) {
+      if (sessionResponse.session == null) {
         throw const app_exceptions.AppAuthException(
-          message: 'Failed to create session — token may have expired',
+          message: 'Failed to establish session — please try again',
         );
       }
 
-      await _client.auth.refreshSession();
-      return await _fetchUserProfile(verifyResponse.session!.user.id);
+      return await _fetchUserProfile(sessionResponse.session!.user.id);
     } on app_exceptions.AppAuthException {
       rethrow;
     } on FunctionException catch (e) {

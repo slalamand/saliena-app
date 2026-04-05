@@ -84,18 +84,28 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final skipCheck = await _authRepository.checkCanSkipOtp(event.email);
     final canSkip = skipCheck.isSuccess && (skipCheck.value ?? false);
 
+    debugPrint('=== Sign-in: canSkip=$canSkip for email=${event.email}');
+
     if (canSkip) {
       // ── Step 2a: verified resident — sign in directly (no OTP screen) ──
       // Calls the auto_sign_in Edge Function which generates a server-side
       // magic-link token and returns it. We exchange it for a real session.
+      emit(const AuthLoading(message: 'Signing you in...'));
       final signInResult = await _authRepository.signInVerifiedUser(event.email);
 
       if (signInResult.isSuccess) {
+        debugPrint('=== Verified user sign-in successful');
         emit(AuthAuthenticated(user: signInResult.value!));
         return;
       }
-      // Edge Function failed (e.g. token expired mid-flight) — fall through
-      // to the OTP flow so the user is never completely blocked.
+      
+      // Edge Function failed — log the error and show it to the user
+      debugPrint('=== Verified user sign-in failed: ${signInResult.failure.message}');
+      emit(AuthError(
+        message: 'Auto sign-in failed: ${signInResult.failure.message}. Please contact support.',
+        code: signInResult.failure.code,
+      ));
+      return;
     }
 
     // ── Step 2b: not verified (or skip failed) — send OTP as normal ──────
