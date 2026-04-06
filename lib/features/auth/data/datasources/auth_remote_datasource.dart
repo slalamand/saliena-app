@@ -50,6 +50,13 @@ abstract class AuthRemoteDataSource {
 
   Future<void> deleteAccount();
 
+  /// Returns the login status for a given email address.
+  /// Possible return values:
+  ///   'verified'   → email is in profiles AND is_verified = TRUE  (skip OTP)
+  ///   'unverified' → email is in profiles AND is_verified = FALSE (send OTP)
+  ///   'not_found'  → email is NOT in profiles (reject with clear message)
+  Future<String> getLoginStatus(String email);
+
   /// Checks Supabase to see if this email's profile has is_verified = TRUE.
   /// Used before login to decide whether to skip the OTP screen.
   Future<bool> checkCanSkipOtp(String email);

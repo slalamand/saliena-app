@@ -73,6 +73,13 @@ abstract class AuthRepository {
   /// Deletes the user's account.
   Future<Result<void>> deleteAccount();
 
+  /// Returns the login status for a given email address.
+  /// Possible values: 'verified' | 'unverified' | 'not_found'
+  ///   'verified'   → skip OTP, go straight to home
+  ///   'unverified' → send OTP, show verification screen
+  ///   'not_found'  → email not in system, show clear error
+  Future<Result<String>> getLoginStatus(String email);
+
   /// Checks whether the given email belongs to a verified resident who can
   /// skip the OTP step. Returns true → skip OTP, false → send OTP.
   Future<Result<bool>> checkCanSkipOtp(String email);

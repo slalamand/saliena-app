@@ -86,18 +86,31 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     emit(const AuthLoading(message: 'Checking account...'));
 
-    // ── Step 1: check if this resident has is_verified = TRUE ────────────
-    // This calls the can_skip_otp() SQL function (SECURITY DEFINER, anon-safe).
-    // If anything goes wrong the check returns false and we fall through to OTP.
-    final skipCheck = await _authRepository.checkCanSkipOtp(event.email);
-    final canSkip = skipCheck.isSuccess && (skipCheck.value ?? false);
+    // ── Step 1: check login status for this email ─────────────────────────
+    // get_login_status() is a SECURITY DEFINER SQL function — safe for anon.
+    // Returns: 'verified' | 'unverified' | 'not_found'
+    final statusResult = await _authRepository.getLoginStatus(event.email);
 
-    debugPrint('=== Sign-in: canSkip=$canSkip for email=${event.email}');
+    if (statusResult.isFailure) {
+      // Network failure
+      emit(AuthError(message: statusResult.failure.message));
+      return;
+    }
 
-    if (canSkip) {
-      // ── Step 2a: verified resident — sign in directly (no OTP screen) ──
-      // Calls the auto_sign_in Edge Function which generates a server-side
-      // magic-link token and returns it. We exchange it for a real session.
+    final status = statusResult.value ?? 'not_found';
+    debugPrint('=== Sign-in: status=$status for email=${event.email}');
+
+    // ── Step 2a: email not in our system ──────────────────────────────────
+    if (status == 'not_found') {
+      emit(const AuthError(
+        message:
+            'This email is not registered in our system. Please contact the management office.',
+      ));
+      return;
+    }
+
+    // ── Step 2b: verified resident — sign in directly, no OTP ─────────────
+    if (status == 'verified') {
       emit(const AuthLoading(message: 'Signing you in...'));
       final signInResult = await _authRepository.signInVerifiedUser(event.email);
 
@@ -106,9 +119,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         emit(AuthAuthenticated(user: signInResult.value!));
         return;
       }
-      
-      // Edge Function failed — fall back to normal OTP flow so the user isn't blocked.
-      debugPrint('=== Verified user sign-in failed (falling back to OTP): ${signInResult.failure.message}');
+
+      // Edge Function failed — fall back to OTP so the user is never blocked.
+      debugPrint(
+          '=== Verified user auto-sign-in failed (falling back to OTP): '
+          '${signInResult.failure.message}');
       emit(const AuthLoading(message: 'Sending verification code...'));
       final otpResult = await _authRepository.sendEmailOtp(event.email);
       if (otpResult.isSuccess) {
@@ -122,7 +137,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       return;
     }
 
-    // ── Step 2b: not verified (or skip failed) — send OTP as normal ──────
+    // ── Step 2c: unverified resident — send OTP as normal ─────────────────
     emit(const AuthLoading(message: 'Sending verification code...'));
     final result = await _authRepository.sendEmailOtp(event.email);
 

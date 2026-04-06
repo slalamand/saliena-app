@@ -322,6 +322,21 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<Result<String>> getLoginStatus(String email) async {
+    if (!await _networkInfo.isConnected) {
+      return Result.failure(const NetworkFailure());
+    }
+    try {
+      final status = await _remoteDataSource.getLoginStatus(email);
+      return Result.success(status);
+    } catch (e) {
+      // On any unexpected error fall back to 'not_found' so we never
+      // accidentally send an OTP to an unknown address.
+      return Result.success('not_found');
+    }
+  }
+
+  @override
   Future<Result<bool>> checkCanSkipOtp(String email) async {
     if (!await _networkInfo.isConnected) {
       // Offline → can’t verify, fall back to OTP once online

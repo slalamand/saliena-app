@@ -430,6 +430,20 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
   }
 
   @override
+  Future<String> getLoginStatus(String email) async {
+    try {
+      final result = await _client.rpc(
+        'get_login_status',
+        params: {'p_email': email.toLowerCase().trim()},
+      );
+      return result as String? ?? 'not_found';
+    } catch (e) {
+      debugPrint('getLoginStatus error (defaulting to not_found): $e');
+      return 'not_found';
+    }
+  }
+
+  @override
   Future<bool> checkCanSkipOtp(String email) async {
     try {
       // Calls the SECURITY DEFINER SQL function — safe for anon callers.

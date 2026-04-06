@@ -20,8 +20,6 @@ Deno.serve(async (req) => {
       )
     }
 
-    // SUPABASE_SERVICE_ROLE_KEY is auto-provided by the Supabase runtime.
-    // SERVICE_ROLE_KEY is the fallback if a custom secret was set manually.
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
     const serviceRoleKey =
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ??
@@ -42,7 +40,8 @@ Deno.serve(async (req) => {
 
     const normalizedEmail = email.toLowerCase().trim()
 
-    // Check if the user is verified
+    // ── Step 1: Check the profiles table for this email ──────────────────────
+    // Only management-approved users have a profile row. If not found → reject.
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('id, is_verified')
@@ -64,30 +63,59 @@ Deno.serve(async (req) => {
       )
     }
 
-    // ── Generate a magic-link token via admin.generateLink ───────────────
-    // This method is available in all supabase-js v2 versions and does NOT
-    // send an email — it just creates a one-time token server-side.
-    // The Flutter app will call verifyOTP(type: magiclink) with this token
-    // to exchange it for a real session without any code entry by the user.
+    // ── Step 2: Generate a magic-link token server-side ───────────────────────
+    // generateLink does NOT send an email — it only creates a one-time token.
+    // The Flutter app will call verifyOTP(type: magiclink, token: rawToken)
+    // to exchange it for a real Supabase session.
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'magiclink',
       email: normalizedEmail,
       options: { shouldCreateUser: false },
     })
 
-    if (linkError || !linkData?.properties?.hashed_token) {
-      console.error('auto_sign_in: generateLink failed:', linkError?.message ?? 'no token returned')
+    if (linkError || !linkData?.properties?.action_link) {
+      console.error('auto_sign_in: generateLink failed:', linkError?.message ?? 'no action_link returned')
       return new Response(
         JSON.stringify({ skip_otp: false, reason: `Failed to generate token: ${linkError?.message ?? 'unknown'}` }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Return the hashed_token — Flutter calls verifyOTP(type: magiclink) with it
+    // ── Step 3: Extract the RAW token from the action_link URL ────────────────
+    //
+    // IMPORTANT: generateLink returns two token-related fields:
+    //   • properties.hashed_token  — the SHA-256 hash stored in the DB (do NOT use)
+    //   • properties.action_link   — the actual magic-link URL that contains the
+    //                                RAW token as a query parameter
+    //
+    // verifyOTP(type: magiclink) on the client sends the raw token to
+    // /auth/v1/verify, which then SHA-256-hashes it and compares to the DB.
+    // Sending hashed_token would hash it twice → verification failure.
+    //
+    // We parse the action_link URL and pull out the ?token= parameter.
+    let rawToken: string | null = null
+    try {
+      const actionUrl = new URL(linkData.properties.action_link)
+      rawToken = actionUrl.searchParams.get('token')
+    } catch (parseError) {
+      console.error('auto_sign_in: failed to parse action_link URL:', parseError)
+    }
+
+    if (!rawToken) {
+      console.error('auto_sign_in: could not extract raw token from action_link')
+      return new Response(
+        JSON.stringify({ skip_otp: false, reason: 'Failed to extract token from magic link' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    console.log(`auto_sign_in: successfully generated token for ${normalizedEmail}`)
+
+    // Return the raw token — Flutter calls verifyOTP(type: OtpType.magiclink)
     return new Response(
       JSON.stringify({
         skip_otp: true,
-        token: linkData.properties.hashed_token,
+        token: rawToken,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
