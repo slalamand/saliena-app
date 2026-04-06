@@ -16,7 +16,6 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
 
   SupabaseAuthDataSource(this._client);
 
-
   @override
   Future<UserModel> signUp({
     required String email,
@@ -25,12 +24,9 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
     String? address,
   }) async {
     try {
-      // Generate a compliant random password since Supabase requires it, but we won't use it
       final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
       final randomPassword = 'Aa1${timestamp}xYz';
-      
-      // DO NOT pass metadata - trigger only inserts id, email, role
-      // Profile fields (full_name, phone, address) are written AFTER login
+
       final response = await _client.auth.signUp(
         email: email,
         password: randomPassword,
@@ -40,7 +36,6 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
         throw const app_exceptions.AppAuthException(message: 'Sign up failed');
       }
 
-      // Return a minimal user model - profile fields will be updated after OTP verification
       return UserModel(
         id: response.user!.id,
         email: email,
@@ -83,9 +78,6 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
   @override
   Future<void> sendPhoneOtp(String phone) async {
     try {
-      // Always use signInWithOtp to ensure an SMS is sent.
-      // updateUser(phone: ...) acts as a "Phone Change" and may not send an SMS
-      // if the phone number hasn't actually changed (which is the case during login verification).
       await _client.auth.signInWithOtp(phone: phone);
     } on AuthApiException catch (e) {
       throw app_exceptions.AppAuthException(
@@ -102,7 +94,6 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
     required String otp,
   }) async {
     try {
-      // Try phoneChange verification first (common for authenticated users)
       try {
         await _client.auth.verifyOTP(
           phone: phone,
@@ -110,22 +101,18 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
           type: OtpType.phoneChange,
         );
       } on AuthException {
-        // Fallback to SMS verification if phoneChange fails
         await _client.auth.verifyOTP(
           phone: phone,
           token: otp,
           type: OtpType.sms,
         );
       }
-      
-      // Sync phone to profile after verification
+
       final userId = _client.auth.currentUser?.id;
       if (userId != null) {
         await _client.from('profiles').update({
           'phone': phone,
         }).eq('id', userId);
-        
-        // Refresh session to ensure currentUser.phoneConfirmedAt is updated
         await _client.auth.refreshSession();
       }
     } on AuthApiException catch (e) {
@@ -137,20 +124,61 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
     }
   }
 
+  /// Sends a 6-digit email OTP via Supabase's signInWithOtp.
+  ///
+  /// Strategy:
+  ///   1. Try with [shouldCreateUser: false] — correct for existing accounts.
+  ///   2. If that fails (e.g. the auth.users row was never created for a
+  ///      management-inserted profile), retry with [shouldCreateUser: true]
+  ///      so Supabase creates the auth account and sends the code.
+  ///
+  /// In either case a 500 "Error sending magic link email" means Supabase's
+  /// email service is broken for this project — the exception propagates up
+  /// and the BLoC handles it gracefully by still navigating to the OTP screen.
   @override
   Future<void> sendEmailOtp(String email) async {
     try {
-      // Use signInWithOtp to generate an Email OTP (Magic Link code).
-      // This is compatible with verifyOTP(type: OtpType.email).
+      // First attempt: user should already exist in auth.users.
       await _client.auth.signInWithOtp(
         email: email,
         shouldCreateUser: false,
       );
-    } on AuthApiException catch (e) {
+    } on AuthApiException catch (firstError) {
+      debugPrint(
+          '=== sendEmailOtp(shouldCreateUser:false) failed: '
+          '${firstError.message} [${firstError.statusCode}]');
+
+      // If the error indicates the user was not found (Supabase returns
+      // statusCode 422 for "User not found" with shouldCreateUser:false),
+      // retry allowing user creation.  This handles management-inserted
+      // profiles that have no corresponding auth.users row yet.
+      final isUserNotFound = firstError.statusCode == '422' ||
+          (firstError.message.toLowerCase().contains('not found') ||
+           firstError.message.toLowerCase().contains('not registered'));
+
+      if (isUserNotFound) {
+        debugPrint('=== Retrying sendEmailOtp with shouldCreateUser:true');
+        try {
+          await _client.auth.signInWithOtp(
+            email: email,
+            shouldCreateUser: true,
+          );
+          return; // success on retry
+        } on AuthApiException catch (retryError) {
+          throw app_exceptions.AppAuthException(
+            message: retryError.message,
+            code: retryError.code,
+            originalError: retryError,
+          );
+        }
+      }
+
+      // For any other error (e.g. 500 "Error sending magic link email")
+      // propagate it so the BLoC can decide what to do.
       throw app_exceptions.AppAuthException(
-        message: e.message,
-        code: e.code,
-        originalError: e,
+        message: firstError.message,
+        code: firstError.code,
+        originalError: firstError,
       );
     }
   }
@@ -161,20 +189,18 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
     required String otp,
   }) async {
     try {
-      // Verify using OtpType.email as requested.
       final response = await _client.auth.verifyOTP(
         email: email,
         token: otp,
         type: OtpType.email,
       );
-      
+
       if (response.session == null) {
         throw const app_exceptions.AppAuthException(
           message: 'Verification failed - invalid or expired code',
         );
       }
-      
-      // Refresh session to ensure currentUser.emailConfirmedAt is updated in the local session
+
       await _client.auth.refreshSession();
     } on AuthApiException catch (e) {
       throw app_exceptions.AppAuthException(
@@ -199,27 +225,25 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
   @override
   Future<String> setup2FA() async {
     try {
-      // Get the user's phone number from their profile
       final userId = _client.auth.currentUser?.id;
       if (userId == null) {
-        throw const app_exceptions.AppAuthException(message: 'Not authenticated');
+        throw const app_exceptions.AppAuthException(
+            message: 'Not authenticated');
       }
-      
+
       final profile = await _client
           .from('profiles')
           .select('phone')
           .eq('id', userId)
           .single();
-      
+
       final phone = profile['phone'] as String?;
       if (phone == null || phone.isEmpty) {
-        throw const app_exceptions.AppAuthException(message: 'No phone number on file');
+        throw const app_exceptions.AppAuthException(
+            message: 'No phone number on file');
       }
-      
-      // Send OTP to the phone number
+
       await _client.auth.signInWithOtp(phone: phone);
-      
-      // Return the phone number so the UI can display it
       return phone;
     } on AuthApiException catch (e) {
       throw app_exceptions.AppAuthException(
@@ -239,31 +263,30 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
   @override
   Future<void> verify2FA(String code) async {
     try {
-      // Get the user's phone number from their profile
       final userId = _client.auth.currentUser?.id;
       if (userId == null) {
-        throw const app_exceptions.AppAuthException(message: 'Not authenticated');
+        throw const app_exceptions.AppAuthException(
+            message: 'Not authenticated');
       }
-      
+
       final profile = await _client
           .from('profiles')
           .select('phone')
           .eq('id', userId)
           .single();
-      
+
       final phone = profile['phone'] as String?;
       if (phone == null || phone.isEmpty) {
-        throw const app_exceptions.AppAuthException(message: 'No phone number on file');
+        throw const app_exceptions.AppAuthException(
+            message: 'No phone number on file');
       }
-      
-      // Verify the phone OTP
+
       await _client.auth.verifyOTP(
         phone: phone,
         token: code,
         type: OtpType.sms,
       );
 
-      // Update profile to mark 2FA as enabled
       await _client.from('profiles').update({
         'two_factor_enabled': true,
       }).eq('id', userId);
@@ -328,7 +351,6 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
         }
       });
     } catch (e) {
-      // If auth state changes can't be accessed, return empty stream
       debugPrint('Warning: Auth state changes not available: $e');
       return Stream.value(null);
     }
@@ -347,7 +369,6 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
     }
   }
 
-
   @override
   Future<UserModel> updateProfile({
     String? fullName,
@@ -357,7 +378,8 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
     try {
       final userId = _client.auth.currentUser?.id;
       if (userId == null) {
-        throw const app_exceptions.AppAuthException(message: 'Not authenticated');
+        throw const app_exceptions.AppAuthException(
+            message: 'Not authenticated');
       }
 
       final updates = <String, dynamic>{};
@@ -366,7 +388,6 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
       if (address != null) updates['address'] = address;
 
       await _client.from('profiles').update(updates).eq('id', userId);
-
       return await _fetchUserProfile(userId);
     } on PostgrestException catch (e) {
       throw app_exceptions.ServerException(
@@ -392,11 +413,9 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
     }
   }
 
-
   @override
   Future<void> deleteAccount() async {
     try {
-      // Call edge function — it handles actual auth user deletion server-side
       await _client.functions.invoke('delete_user');
       await signOut();
     } catch (e) {
@@ -407,7 +426,6 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
     }
   }
 
-  /// Fetches the user profile from the profiles table.
   Future<UserModel> _fetchUserProfile(String userId) async {
     try {
       final response = await _client
@@ -417,7 +435,8 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
           .single();
 
       final currentUser = _client.auth.currentUser;
-      final isEmailVerified = currentUser?.id == userId && currentUser?.emailConfirmedAt != null;
+      final isEmailVerified = currentUser?.id == userId &&
+          currentUser?.emailConfirmedAt != null;
 
       return UserModel.fromJson(response, isEmailVerified: isEmailVerified);
     } on PostgrestException catch (e) {
@@ -446,14 +465,12 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
   @override
   Future<bool> checkCanSkipOtp(String email) async {
     try {
-      // Calls the SECURITY DEFINER SQL function — safe for anon callers.
       final result = await _client.rpc(
         'can_skip_otp',
         params: {'p_email': email.toLowerCase().trim()},
       );
       return result as bool? ?? false;
     } catch (e) {
-      // If the RPC fails for any reason, fall back to normal OTP flow.
       debugPrint('checkCanSkipOtp error (falling back to OTP): $e');
       return false;
     }
@@ -462,10 +479,6 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
   @override
   Future<UserModel> signInAsVerifiedUser(String email) async {
     try {
-      // Call the Edge Function — it uses the service-role key server-side
-      // to generate a magic-link token via admin.generateLink().
-      // The Flutter app exchanges that token via verifyOTP(type: magiclink)
-      // to create a session, completely bypassing the OTP rate limiter.
       final response = await _client.functions.invoke(
         'auto_sign_in',
         body: {'email': email.toLowerCase().trim()},
@@ -474,16 +487,11 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
       final data = response.data as Map<String, dynamic>;
 
       if (data['skip_otp'] != true) {
-        // Edge Function explicitly said OTP is still needed.
         throw app_exceptions.AppAuthException(
           message: data['reason'] as String? ?? 'Verification required',
         );
       }
 
-      // email_otp is the 6-digit code from generateLink — verified with
-      // OtpType.email (same path as normal OTP login, no PKCE required).
-      // GoTrue v2.188+ requires PKCE for magiclink type, which is why the
-      // previous token/magiclink approach always failed on this server.
       final emailOtp = data['email_otp'] as String?;
       if (emailOtp == null || emailOtp.isEmpty) {
         throw const app_exceptions.AppAuthException(
