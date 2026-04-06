@@ -480,20 +480,21 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
         );
       }
 
-      final token = data['token'] as String?;
-      if (token == null || token.isEmpty) {
+      // email_otp is the 6-digit code from generateLink — verified with
+      // OtpType.email (same path as normal OTP login, no PKCE required).
+      // GoTrue v2.188+ requires PKCE for magiclink type, which is why the
+      // previous token/magiclink approach always failed on this server.
+      final emailOtp = data['email_otp'] as String?;
+      if (emailOtp == null || emailOtp.isEmpty) {
         throw const app_exceptions.AppAuthException(
-          message: 'Invalid token returned from server',
+          message: 'Invalid OTP code returned from server',
         );
       }
 
-      // Exchange the magic-link token for a live session.
-      // verifyOTP with type magiclink is not subject to the email OTP
-      // 60-second rate limit — no more "wait 58 s" error.
       final sessionResponse = await _client.auth.verifyOTP(
         email: email.toLowerCase().trim(),
-        token: token,
-        type: OtpType.magiclink,
+        token: emailOtp,
+        type: OtpType.email,
       );
 
       if (sessionResponse.session == null) {

@@ -63,59 +63,58 @@ Deno.serve(async (req) => {
       )
     }
 
-    // ── Step 2: Generate a magic-link token server-side ───────────────────────
-    // generateLink does NOT send an email — it only creates a one-time token.
-    // The Flutter app will call verifyOTP(type: magiclink, token: rawToken)
-    // to exchange it for a real Supabase session.
+    // ── Step 2: Ensure the user's email is confirmed in auth.users ─────────────
+    // generateLink requires a confirmed email. Verified residents may have been
+    // created via the dashboard without going through normal email confirmation,
+    // so we force-confirm here using the service-role key.
+    const { error: confirmError } = await supabaseAdmin.auth.admin.updateUserById(
+      profile.id,
+      { email_confirm: true }
+    )
+    if (confirmError) {
+      console.warn('auto_sign_in: could not confirm email (non-fatal):', confirmError.message)
+    }
+
+    // ── Step 3: Generate a one-time OTP server-side ───────────────────────────
+    // generateLink does NOT send an email — it just creates a token pair.
+    // We use the email_otp field (6-digit code) and verify it with
+    // OtpType.email on the Flutter side — this path has no PKCE requirement
+    // and is the same proven code path used during normal OTP login.
+    //
+    // WHY NOT magiclink type: GoTrue v2.188+ requires PKCE for magic links,
+    // so verifyOTP(type: magiclink, token) always fails on this server version.
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'magiclink',
       email: normalizedEmail,
       options: { shouldCreateUser: false },
     })
 
-    if (linkError || !linkData?.properties?.action_link) {
-      console.error('auto_sign_in: generateLink failed:', linkError?.message ?? 'no action_link returned')
+    if (linkError || !linkData?.properties) {
+      console.error('auto_sign_in: generateLink failed:', linkError?.message ?? 'no properties returned')
       return new Response(
-        JSON.stringify({ skip_otp: false, reason: `Failed to generate token: ${linkError?.message ?? 'unknown'}` }),
+        JSON.stringify({ skip_otp: false, reason: `Failed to generate OTP: ${linkError?.message ?? 'unknown'}` }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // ── Step 3: Extract the RAW token from the action_link URL ────────────────
-    //
-    // IMPORTANT: generateLink returns two token-related fields:
-    //   • properties.hashed_token  — the SHA-256 hash stored in the DB (do NOT use)
-    //   • properties.action_link   — the actual magic-link URL that contains the
-    //                                RAW token as a query parameter
-    //
-    // verifyOTP(type: magiclink) on the client sends the raw token to
-    // /auth/v1/verify, which then SHA-256-hashes it and compares to the DB.
-    // Sending hashed_token would hash it twice → verification failure.
-    //
-    // We parse the action_link URL and pull out the ?token= parameter.
-    let rawToken: string | null = null
-    try {
-      const actionUrl = new URL(linkData.properties.action_link)
-      rawToken = actionUrl.searchParams.get('token')
-    } catch (parseError) {
-      console.error('auto_sign_in: failed to parse action_link URL:', parseError)
-    }
+    // email_otp is the 6-digit code embedded in OTP emails as {{ .Token }}
+    const emailOtp = linkData.properties.email_otp
 
-    if (!rawToken) {
-      console.error('auto_sign_in: could not extract raw token from action_link')
+    if (!emailOtp) {
+      console.error('auto_sign_in: no email_otp in generateLink response')
       return new Response(
-        JSON.stringify({ skip_otp: false, reason: 'Failed to extract token from magic link' }),
+        JSON.stringify({ skip_otp: false, reason: 'OTP code not returned by server' }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    console.log(`auto_sign_in: successfully generated token for ${normalizedEmail}`)
+    console.log(`auto_sign_in: successfully generated OTP for ${normalizedEmail}`)
 
-    // Return the raw token — Flutter calls verifyOTP(type: OtpType.magiclink)
+    // Return the 6-digit OTP — Flutter calls verifyOTP(type: OtpType.email)
     return new Response(
       JSON.stringify({
         skip_otp: true,
-        token: rawToken,
+        email_otp: emailOtp,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

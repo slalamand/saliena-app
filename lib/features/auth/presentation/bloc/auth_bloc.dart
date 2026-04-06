@@ -120,18 +120,24 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         return;
       }
 
-      // Edge Function failed — fall back to OTP so the user is never blocked.
+      // Edge Function failed — wait briefly to clear any rate-limit collision
+      // from generateLink, then fall back to a normal OTP email.
+      // Verified users NEVER see a terminal error — worst case they enter a
+      // 6-digit code just like an unverified user.
       debugPrint(
           '=== Verified user auto-sign-in failed (falling back to OTP): '
           '${signInResult.failure.message}');
+      await Future.delayed(const Duration(seconds: 2));
       emit(const AuthLoading(message: 'Sending verification code...'));
       final otpResult = await _authRepository.sendEmailOtp(event.email);
       if (otpResult.isSuccess) {
         emit(AuthAwaitingOtpVerification(email: event.email));
       } else {
-        emit(AuthError(
-          message: 'Sign-in failed. Please try again or contact support.',
-          code: otpResult.failure.code,
+        // OTP also failed — still show OTP screen so user can hit Resend.
+        debugPrint('=== OTP fallback also failed: ${otpResult.failure.message}');
+        emit(AuthAwaitingOtpVerification(
+          email: event.email,
+          errorMessage: 'Could not send a code automatically. Tap “Resend code” below.',
         ));
       }
       return;
