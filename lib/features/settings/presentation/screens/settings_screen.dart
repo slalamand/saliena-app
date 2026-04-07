@@ -23,7 +23,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
-  
+
   bool _initialized = false;
 
   @override
@@ -86,17 +86,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Column(
                 children: [
                   Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _buildHeader(context, l10n),
-                          const SizedBox(height: 32),
-                          _buildForm(context, l10n),
-                          const SizedBox(height: 32),
-                          _buildActionButtons(context, l10n, authState is AuthLoading),
-                        ],
+                    // Constrain to 480 pt on iPad; no effect on phones.
+                    child: SalienaAdaptiveContent(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24.0, vertical: 16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildHeader(context, l10n),
+                            const SizedBox(height: 32),
+                            _buildForm(context, l10n),
+                            const SizedBox(height: 32),
+                            _buildActionButtons(
+                                context, l10n, authState is AuthLoading),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -121,7 +126,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: SalienaLogo(
             withText: false,
             scale: 1.6,
-            isDarkBackground: Theme.of(context).brightness == Brightness.dark,
+            isDarkBackground:
+                Theme.of(context).brightness == Brightness.dark,
           ),
         ),
         Text(
@@ -181,7 +187,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: DropdownButtonHideUnderline(
             child: DropdownButton<Locale>(
               value: state.locale,
-              icon: Icon(Icons.arrow_drop_down, color: SalienaColors.getIconColor(context)),
+              icon: Icon(Icons.arrow_drop_down,
+                  color: SalienaColors.getIconColor(context)),
               dropdownColor: SalienaColors.getTextFieldBackground(context),
               style: TextStyle(
                 color: SalienaColors.getHintColor(context),
@@ -208,7 +215,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
               hint: Text(
                 l10n.preferredLanguage,
-                style: TextStyle(color: SalienaColors.getHintColor(context)),
+                style:
+                    TextStyle(color: SalienaColors.getHintColor(context)),
               ),
             ),
           ),
@@ -217,7 +225,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildActionButtons(BuildContext context, AppLocalizations l10n, bool isLoading) {
+  Widget _buildActionButtons(
+      BuildContext context, AppLocalizations l10n, bool isLoading) {
     return Column(
       children: [
         SalienaPrimaryButton(
@@ -225,12 +234,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           isLoading: isLoading,
           onPressed: () {
             context.read<AuthBloc>().add(
-              AuthUpdateProfileRequested(
-                fullName: _nameController.text,
-                phone: _phoneController.text,
-                address: _addressController.text,
-              ),
-            );
+                  AuthUpdateProfileRequested(
+                    fullName: _nameController.text,
+                    phone: _phoneController.text,
+                    address: _addressController.text,
+                  ),
+                );
           },
         ),
         const SizedBox(height: 16),
@@ -241,7 +250,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           },
         ),
         const SizedBox(height: 32),
-        // ── Danger zone ──────────────────────────────────────────────
         Divider(color: Colors.red.withValues(alpha: 0.3)),
         const SizedBox(height: 16),
         SizedBox(

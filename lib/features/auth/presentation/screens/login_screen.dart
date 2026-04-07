@@ -53,39 +53,43 @@ class _LoginScreenState extends State<LoginScreen> {
       child: Scaffold(
         backgroundColor: SalienaColors.getBackgroundBlue(context),
         body: SafeArea(
-          child: Column(
-            children: [
-              const Spacer(flex: 1),
-              // Logo with text
-              const SalienaLogo(
-                withText: true,
-                scale: 1.0,
-              ),
-              const Spacer(flex: 1),
-              
-              // Login Form
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: _buildLoginForm(context),
-              ),
-              
-              const Spacer(flex: 2),
+          // SalienaAdaptiveContent centres the entire column at ≤ 480 pt on
+          // iPad; on phones (< 480 pt wide) it has no visual effect.
+          child: SalienaAdaptiveContent(
+            child: Column(
+              children: [
+                const Spacer(flex: 1),
+                // Logo with text
+                const SalienaLogo(
+                  withText: true,
+                  scale: 1.0,
+                ),
+                const Spacer(flex: 1),
 
-              // Footer Text
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 32),
-                child: Text(
-                  'Your Saliena Estate account is created for you by the management office',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: SalienaColors.getTextColor(context),
-                    fontSize: 14,
-                    fontStyle: FontStyle.italic,
-                    height: 1.4,
+                // Login Form
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: _buildLoginForm(context),
+                ),
+
+                const Spacer(flex: 2),
+
+                // Footer Text
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 32),
+                  child: Text(
+                    'Your Saliena Estate account is created for you by the management office',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: SalienaColors.getTextColor(context),
+                      fontSize: 14,
+                      fontStyle: FontStyle.italic,
+                      height: 1.4,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -130,7 +134,7 @@ class _LoginScreenState extends State<LoginScreen> {
             },
           ),
           const SizedBox(height: 24),
-          
+
           // Info text about OTP
           Container(
             padding: const EdgeInsets.all(12),
@@ -159,7 +163,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ],
             ),
           ),
-          
+
           // Login button
           SalienaPrimaryButton(
             text: 'Send verification code',

@@ -1,11 +1,9 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-
 /// Environment configuration loader.
-/// All secrets are loaded from .env file - NEVER hardcode values here.
+/// All secrets are loaded at compile-time via --dart-define-from-file=.env
 abstract class Env {
-  static String get supabaseUrl => dotenv.env['SUPABASE_URL'] ?? '';
-  static String get supabaseAnonKey => dotenv.env['SUPABASE_ANON_KEY'] ?? '';
-  static String get appEnv => dotenv.env['APP_ENV'] ?? 'development';
+  static const String supabaseUrl = String.fromEnvironment('SUPABASE_URL', defaultValue: '');
+  static const String supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: '');
+  static const String appEnv = String.fromEnvironment('APP_ENV', defaultValue: 'development');
 
   static bool get isDevelopment => appEnv == 'development';
   static bool get isProduction => appEnv == 'production';

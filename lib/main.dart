@@ -1,6 +1,7 @@
+import 'package:device_preview/device_preview.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:saliena_app/app.dart';
@@ -29,8 +30,7 @@ Future<void> main() async {
   );
 
   try {
-    // Load environment variables
-    await dotenv.load(fileName: '.env');
+    // Environment variables are loaded at compile-time securely
     Env.validate();
 
     // Initialize Supabase
@@ -43,7 +43,12 @@ Future<void> main() async {
     await configureDependencies();
 
     // Run the app
-    runApp(const SalienaApp());
+    runApp(
+      DevicePreview(
+        enabled: !kReleaseMode,
+        builder: (context) => const SalienaApp(),
+      ),
+    );
   } catch (e, stackTrace) {
     // Show error screen if initialization fails
     debugPrint('Initialization error: $e');

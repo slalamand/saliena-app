@@ -144,7 +144,7 @@ fi
 
 # 8. Build iOS app for testing
 print_status "Building iOS app for testing..."
-if flutter build ios --release --no-codesign; then
+if flutter build ios --release --no-codesign --dart-define-from-file=.env; then
     print_success "iOS build successful"
 else
     print_error "iOS build failed. Please fix build errors before submission."

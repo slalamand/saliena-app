@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:saliena_app/design_system/theme/colors.dart';
+import 'package:saliena_app/design_system/components/saliena_adaptive_content.dart';
 import 'package:saliena_app/routing/routes.dart';
 import 'package:saliena_app/l10n/app_localizations.dart';
 
@@ -15,37 +16,45 @@ class SalienaBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    
+
+    // The outer Container fills the full screen width so the background
+    // colour reaches the edges on every device.  The inner
+    // SalienaAdaptiveContent centres the nav items at ≤ 480 pt on iPad
+    // while leaving phone layouts completely unchanged.
     return Container(
-      padding: const EdgeInsets.only(top: 16, bottom: 16),
       decoration: BoxDecoration(
         color: SalienaColors.getBackgroundBlue(context),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildNavItem(
-            context,
-            index: 0,
-            icon: Icons.photo_camera_outlined,
-            label: l10n.report,
-            route: Routes.createReport,
+      child: SalienaAdaptiveContent(
+        child: Padding(
+          padding: const EdgeInsets.only(top: 16, bottom: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildNavItem(
+                context,
+                index: 0,
+                icon: Icons.photo_camera_outlined,
+                label: l10n.report,
+                route: Routes.createReport,
+              ),
+              _buildNavItem(
+                context,
+                index: 1,
+                icon: Icons.list_alt_outlined,
+                label: l10n.issues,
+                route: Routes.myReports,
+              ),
+              _buildNavItem(
+                context,
+                index: 2,
+                icon: Icons.person_outline,
+                label: l10n.profile,
+                route: Routes.profile,
+              ),
+            ],
           ),
-          _buildNavItem(
-            context,
-            index: 1,
-            icon: Icons.list_alt_outlined,
-            label: l10n.issues,
-            route: Routes.myReports,
-          ),
-          _buildNavItem(
-            context,
-            index: 2,
-            icon: Icons.person_outline,
-            label: l10n.profile,
-            route: Routes.profile,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -59,11 +68,10 @@ class SalienaBottomNav extends StatelessWidget {
   }) {
     final isSelected = currentIndex == index;
     final color = SalienaColors.getTextColor(context);
-    
+
     return GestureDetector(
       onTap: () {
         if (!isSelected) {
-          // Use pushReplacement for seamless navigation between bottom nav screens
           context.pushReplacement(route);
         }
       },
@@ -75,8 +83,8 @@ class SalienaBottomNav extends StatelessWidget {
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: isSelected 
-                  ? Border.all(color: color, width: 2) 
+              border: isSelected
+                  ? Border.all(color: color, width: 2)
                   : null,
             ),
             child: Icon(

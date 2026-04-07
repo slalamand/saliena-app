@@ -40,7 +40,10 @@ dependencies:
   hive_flutter: ^1.1.0
 
   # Environment
-  flutter_dotenv: ^5.2.1
+  # Environment variables now injected via Dart compiler
+
+  # Dev Tools
+  device_preview: ^1.2.0
 
   # Location & Maps
   geolocator: ^13.0.2
@@ -123,7 +126,6 @@ flutter:
   generate: true
 
   assets:
-    - .env
     - assets/images/
     - assets/icons/
 

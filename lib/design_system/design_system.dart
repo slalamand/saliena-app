@@ -16,3 +16,4 @@ export 'components/saliena_text_field.dart';
 export 'components/language_selector.dart';
 export 'components/saliena_logo.dart';
 export 'components/saliena_bottom_nav.dart';
+export 'components/saliena_adaptive_content.dart';
