@@ -7,8 +7,6 @@ import 'package:saliena_app/features/auth/domain/entities/user.dart';
 import 'package:saliena_app/features/auth/domain/repositories/auth_repository.dart';
 
 /// Implementation of AuthRepository.
-/// This class orchestrates data sources and handles error conversion.
-/// Domain layer only knows about the abstract AuthRepository interface.
 class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDataSource _remoteDataSource;
   final NetworkInfo _networkInfo;
@@ -20,30 +18,19 @@ class AuthRepositoryImpl implements AuthRepository {
         _networkInfo = networkInfo;
 
   @override
-  Future<Result<void>> signIn({
-    required String email,
-  }) async {
+  Future<Result<void>> signIn({required String email}) async {
     if (!await _networkInfo.isConnected) {
       return Result.failure(const NetworkFailure());
     }
-
     try {
       await _remoteDataSource.sendEmailOtp(email);
       return Result.success(null);
     } on exceptions.AppAuthException catch (e) {
-      return Result.failure(AuthFailure(
-        message: e.message,
-        code: e.code,
-      ));
+      return Result.failure(AuthFailure(message: e.message, code: e.code));
     } on exceptions.ServerException catch (e) {
-      return Result.failure(ServerFailure(
-        message: e.message,
-        code: e.code,
-      ));
+      return Result.failure(ServerFailure(message: e.message, code: e.code));
     } catch (e) {
-      return Result.failure(ServerFailure(
-        message: 'Sign in failed: ${e.toString()}',
-      ));
+      return Result.failure(ServerFailure(message: 'Sign in failed: ${e.toString()}'));
     }
   }
 
@@ -57,7 +44,6 @@ class AuthRepositoryImpl implements AuthRepository {
     if (!await _networkInfo.isConnected) {
       return Result.failure(const NetworkFailure());
     }
-
     try {
       final user = await _remoteDataSource.signUp(
         email: email,
@@ -67,19 +53,11 @@ class AuthRepositoryImpl implements AuthRepository {
       );
       return Result.success(user);
     } on exceptions.AppAuthException catch (e) {
-      return Result.failure(AuthFailure(
-        message: e.message,
-        code: e.code,
-      ));
+      return Result.failure(AuthFailure(message: e.message, code: e.code));
     } on exceptions.ServerException catch (e) {
-      return Result.failure(ServerFailure(
-        message: e.message,
-        code: e.code,
-      ));
+      return Result.failure(ServerFailure(message: e.message, code: e.code));
     } catch (e) {
-      return Result.failure(ServerFailure(
-        message: 'Sign up failed: ${e.toString()}',
-      ));
+      return Result.failure(ServerFailure(message: 'Sign up failed: ${e.toString()}'));
     }
   }
 
@@ -89,10 +67,9 @@ class AuthRepositoryImpl implements AuthRepository {
       await _remoteDataSource.signOut();
       return Result.success(null);
     } on exceptions.ServerException catch (e) {
-      return Result.failure(ServerFailure(
-        message: e.message,
-        code: e.code,
-      ));
+      return Result.failure(ServerFailure(message: e.message, code: e.code));
+    } catch (e) {
+      return Result.failure(ServerFailure(message: 'Sign out failed: ${e.toString()}'));
     }
   }
 
@@ -101,15 +78,13 @@ class AuthRepositoryImpl implements AuthRepository {
     if (!await _networkInfo.isConnected) {
       return Result.failure(const NetworkFailure());
     }
-
     try {
       await _remoteDataSource.sendPhoneOtp(phone);
       return Result.success(null);
     } on exceptions.AppAuthException catch (e) {
-      return Result.failure(AuthFailure(
-        message: e.message,
-        code: e.code,
-      ));
+      return Result.failure(AuthFailure(message: e.message, code: e.code));
+    } catch (e) {
+      return Result.failure(ServerFailure(message: 'Failed to send phone OTP: ${e.toString()}'));
     }
   }
 
@@ -121,32 +96,48 @@ class AuthRepositoryImpl implements AuthRepository {
     if (!await _networkInfo.isConnected) {
       return Result.failure(const NetworkFailure());
     }
-
     try {
       await _remoteDataSource.verifyPhoneOtp(phone: phone, otp: otp);
       return Result.success(null);
     } on exceptions.AppAuthException catch (e) {
-      return Result.failure(AuthFailure(
-        message: e.message,
-        code: e.code,
-      ));
+      return Result.failure(AuthFailure(message: e.message, code: e.code));
+    } catch (e) {
+      return Result.failure(ServerFailure(message: 'Phone verification failed: ${e.toString()}'));
     }
   }
 
+  /// Sends an email OTP to the given address.
+  ///
+  /// THE CRITICAL FIX (repository layer):
+  ///
+  /// The datasource now converts every AuthException subclass (including
+  /// AuthRetryableFetchException for 500 responses) to AppAuthException
+  /// before returning.  This method therefore wraps every possible exception
+  /// type — including any future ones — in a Result.failure so that the
+  /// caller (the BLoC) always receives a Result, never a thrown exception.
+  ///
+  /// Previously, only AppAuthException was caught here.  If anything else
+  /// escaped the datasource it would propagate through the BLoC event handler,
+  /// leaving the state at AuthLoading and showing a raw DartError to the user.
   @override
   Future<Result<void>> sendEmailOtp(String email) async {
     if (!await _networkInfo.isConnected) {
       return Result.failure(const NetworkFailure());
     }
-
     try {
       await _remoteDataSource.sendEmailOtp(email);
       return Result.success(null);
     } on exceptions.AppAuthException catch (e) {
-      return Result.failure(AuthFailure(
-        message: e.message,
-        code: e.code,
-      ));
+      return Result.failure(AuthFailure(message: e.message, code: e.code));
+    } on exceptions.ServerException catch (e) {
+      return Result.failure(ServerFailure(message: e.message, code: e.code));
+    } catch (e) {
+      // Belt-and-braces: ensure no exception ever escapes this method as a
+      // throw.  The BLoC must always receive a Result so it can navigate the
+      // user to the OTP screen with an appropriate error message.
+      return Result.failure(
+        ServerFailure(message: 'Failed to send verification code: ${e.toString()}'),
+      );
     }
   }
 
@@ -158,24 +149,15 @@ class AuthRepositoryImpl implements AuthRepository {
     if (!await _networkInfo.isConnected) {
       return Result.failure(const NetworkFailure());
     }
-
     try {
       await _remoteDataSource.verifyEmailOtp(email: email, otp: otp);
       return Result.success(null);
     } on exceptions.AppAuthException catch (e) {
-      return Result.failure(AuthFailure(
-        message: e.message,
-        code: e.code,
-      ));
+      return Result.failure(AuthFailure(message: e.message, code: e.code));
     } on exceptions.ServerException catch (e) {
-      return Result.failure(ServerFailure(
-        message: e.message,
-        code: e.code,
-      ));
+      return Result.failure(ServerFailure(message: e.message, code: e.code));
     } catch (e) {
-      return Result.failure(ServerFailure(
-        message: 'Verification failed: ${e.toString()}',
-      ));
+      return Result.failure(ServerFailure(message: 'Verification failed: ${e.toString()}'));
     }
   }
 
@@ -184,15 +166,13 @@ class AuthRepositoryImpl implements AuthRepository {
     if (!await _networkInfo.isConnected) {
       return Result.failure(const NetworkFailure());
     }
-
     try {
       final secret = await _remoteDataSource.setup2FA();
       return Result.success(secret);
     } on exceptions.AppAuthException catch (e) {
-      return Result.failure(AuthFailure(
-        message: e.message,
-        code: e.code,
-      ));
+      return Result.failure(AuthFailure(message: e.message, code: e.code));
+    } catch (e) {
+      return Result.failure(ServerFailure(message: '2FA setup failed: ${e.toString()}'));
     }
   }
 
@@ -201,15 +181,13 @@ class AuthRepositoryImpl implements AuthRepository {
     if (!await _networkInfo.isConnected) {
       return Result.failure(const NetworkFailure());
     }
-
     try {
       await _remoteDataSource.verify2FA(code);
       return Result.success(null);
     } on exceptions.AppAuthException catch (e) {
-      return Result.failure(AuthFailure(
-        message: e.message,
-        code: e.code,
-      ));
+      return Result.failure(AuthFailure(message: e.message, code: e.code));
+    } catch (e) {
+      return Result.failure(ServerFailure(message: '2FA verification failed: ${e.toString()}'));
     }
   }
 
@@ -218,15 +196,13 @@ class AuthRepositoryImpl implements AuthRepository {
     if (!await _networkInfo.isConnected) {
       return Result.failure(const NetworkFailure());
     }
-
     try {
       await _remoteDataSource.disable2FA();
       return Result.success(null);
     } on exceptions.AppAuthException catch (e) {
-      return Result.failure(AuthFailure(
-        message: e.message,
-        code: e.code,
-      ));
+      return Result.failure(AuthFailure(message: e.message, code: e.code));
+    } catch (e) {
+      return Result.failure(ServerFailure(message: 'Failed to disable 2FA: ${e.toString()}'));
     }
   }
 
@@ -236,10 +212,9 @@ class AuthRepositoryImpl implements AuthRepository {
       final user = await _remoteDataSource.getCurrentUser();
       return Result.success(user);
     } on exceptions.ServerException catch (e) {
-      return Result.failure(ServerFailure(
-        message: e.message,
-        code: e.code,
-      ));
+      return Result.failure(ServerFailure(message: e.message, code: e.code));
+    } catch (e) {
+      return Result.failure(ServerFailure(message: 'Failed to get current user: ${e.toString()}'));
     }
   }
 
@@ -251,18 +226,15 @@ class AuthRepositoryImpl implements AuthRepository {
     if (!await _networkInfo.isConnected) {
       return Result.failure(const NetworkFailure());
     }
-
     try {
       await _remoteDataSource.refreshSession();
       return Result.success(null);
     } on exceptions.AppAuthException catch (e) {
-      return Result.failure(AuthFailure(
-        message: e.message,
-        code: e.code,
-      ));
+      return Result.failure(AuthFailure(message: e.message, code: e.code));
+    } catch (e) {
+      return Result.failure(ServerFailure(message: 'Session refresh failed: ${e.toString()}'));
     }
   }
-
 
   @override
   Future<Result<User>> updateProfile({
@@ -273,7 +245,6 @@ class AuthRepositoryImpl implements AuthRepository {
     if (!await _networkInfo.isConnected) {
       return Result.failure(const NetworkFailure());
     }
-
     try {
       final user = await _remoteDataSource.updateProfile(
         fullName: fullName,
@@ -282,10 +253,9 @@ class AuthRepositoryImpl implements AuthRepository {
       );
       return Result.success(user);
     } on exceptions.ServerException catch (e) {
-      return Result.failure(ServerFailure(
-        message: e.message,
-        code: e.code,
-      ));
+      return Result.failure(ServerFailure(message: e.message, code: e.code));
+    } catch (e) {
+      return Result.failure(ServerFailure(message: 'Profile update failed: ${e.toString()}'));
     }
   }
 
@@ -294,30 +264,28 @@ class AuthRepositoryImpl implements AuthRepository {
     if (!await _networkInfo.isConnected) {
       return Result.failure(const NetworkFailure());
     }
-
     try {
       await _remoteDataSource.updateEmail(newEmail);
       return Result.success(null);
     } on exceptions.AppAuthException catch (e) {
       return Result.failure(AuthFailure(message: e.message, code: e.code));
+    } catch (e) {
+      return Result.failure(ServerFailure(message: 'Email update failed: ${e.toString()}'));
     }
   }
-
 
   @override
   Future<Result<void>> deleteAccount() async {
     if (!await _networkInfo.isConnected) {
       return Result.failure(const NetworkFailure());
     }
-
     try {
       await _remoteDataSource.deleteAccount();
       return Result.success(null);
     } on exceptions.ServerException catch (e) {
-      return Result.failure(ServerFailure(
-        message: e.message,
-        code: e.code,
-      ));
+      return Result.failure(ServerFailure(message: e.message, code: e.code));
+    } catch (e) {
+      return Result.failure(ServerFailure(message: 'Account deletion failed: ${e.toString()}'));
     }
   }
 
@@ -330,8 +298,6 @@ class AuthRepositoryImpl implements AuthRepository {
       final status = await _remoteDataSource.getLoginStatus(email);
       return Result.success(status);
     } catch (e) {
-      // On any unexpected error fall back to 'not_found' so we never
-      // accidentally send an OTP to an unknown address.
       return Result.success('not_found');
     }
   }
@@ -339,14 +305,12 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Result<bool>> checkCanSkipOtp(String email) async {
     if (!await _networkInfo.isConnected) {
-      // Offline → can’t verify, fall back to OTP once online
       return Result.success(false);
     }
     try {
       final canSkip = await _remoteDataSource.checkCanSkipOtp(email);
       return Result.success(canSkip);
     } catch (e) {
-      // Any unexpected error → treat as "needs OTP", don’t block sign-in
       return Result.success(false);
     }
   }
@@ -360,19 +324,13 @@ class AuthRepositoryImpl implements AuthRepository {
       final user = await _remoteDataSource.signInAsVerifiedUser(email);
       return Result.success(user);
     } on exceptions.AppAuthException catch (e) {
-      return Result.failure(AuthFailure(
-        message: e.message,
-        code: e.code,
-      ));
+      return Result.failure(AuthFailure(message: e.message, code: e.code));
     } on exceptions.ServerException catch (e) {
-      return Result.failure(ServerFailure(
-        message: e.message,
-        code: e.code,
-      ));
+      return Result.failure(ServerFailure(message: e.message, code: e.code));
     } catch (e) {
-      return Result.failure(ServerFailure(
-        message: 'Verified sign-in failed: ${e.toString()}',
-      ));
+      return Result.failure(
+        ServerFailure(message: 'Verified sign-in failed: ${e.toString()}'),
+      );
     }
   }
 }

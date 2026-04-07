@@ -9,8 +9,6 @@ import 'package:saliena_app/features/auth/data/models/user_model.dart';
 import 'package:saliena_app/features/auth/domain/entities/user.dart';
 
 /// Supabase implementation of AuthRemoteDataSource.
-/// This class is the ONLY place where Supabase auth logic exists.
-/// To swap backends, create a new implementation of AuthRemoteDataSource.
 class SupabaseAuthDataSource implements AuthRemoteDataSource {
   final SupabaseClient _client;
 
@@ -48,14 +46,13 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
         twoFactorEnabled: false,
         createdAt: DateTime.now(),
       );
-    } on AuthApiException catch (e) {
+    } on AuthException catch (e) {
       throw app_exceptions.AppAuthException(
         message: e.message,
         code: e.code,
         originalError: e,
       );
     } catch (e) {
-      if (e is AuthException) rethrow;
       throw app_exceptions.ServerException(
         message: 'An unexpected error occurred',
         originalError: e,
@@ -79,10 +76,15 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
   Future<void> sendPhoneOtp(String phone) async {
     try {
       await _client.auth.signInWithOtp(phone: phone);
-    } on AuthApiException catch (e) {
+    } on AuthException catch (e) {
       throw app_exceptions.AppAuthException(
         message: e.message,
         code: e.code,
+        originalError: e,
+      );
+    } catch (e) {
+      throw app_exceptions.AppAuthException(
+        message: 'Failed to send phone OTP: ${e.toString()}',
         originalError: e,
       );
     }
@@ -110,12 +112,10 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
 
       final userId = _client.auth.currentUser?.id;
       if (userId != null) {
-        await _client.from('profiles').update({
-          'phone': phone,
-        }).eq('id', userId);
+        await _client.from('profiles').update({'phone': phone}).eq('id', userId);
         await _client.auth.refreshSession();
       }
-    } on AuthApiException catch (e) {
+    } on AuthException catch (e) {
       throw app_exceptions.AppAuthException(
         message: e.message,
         code: e.code,
@@ -124,37 +124,53 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
     }
   }
 
-  /// Sends a 6-digit email OTP via Supabase's signInWithOtp.
+  /// Sends a 6-digit email OTP via Supabase signInWithOtp.
   ///
-  /// Strategy:
-  ///   1. Try with [shouldCreateUser: false] — correct for existing accounts.
-  ///   2. If that fails (e.g. the auth.users row was never created for a
-  ///      management-inserted profile), retry with [shouldCreateUser: true]
-  ///      so Supabase creates the auth account and sends the code.
+  /// THE CRITICAL FIX (sendEmailOtp):
   ///
-  /// In either case a 500 "Error sending magic link email" means Supabase's
-  /// email service is broken for this project — the exception propagates up
-  /// and the BLoC handles it gracefully by still navigating to the OTP screen.
+  /// The gotrue-dart package throws TWO different exception types from the
+  /// same network call:
+  ///
+  ///   • AuthApiException  — 4xx responses (bad request, not found, etc.)
+  ///   • AuthRetryableFetchException — 5xx responses (server error, e.g. the
+  ///     "Error sending magic link email" 500 that occurs when Supabase's
+  ///     email service is not configured).
+  ///
+  /// Both are direct subclasses of AuthException — they are SIBLINGS, not
+  /// parent/child.  Catching only AuthApiException silently lets
+  /// AuthRetryableFetchException escape through the entire call stack
+  /// (datasource → repository → bloc event handler), causing the BLoC to
+  /// throw, the state to stay at AuthLoading, and the user to see a DartError.
+  ///
+  /// The fix: catch AuthException (the common base class) so that ALL
+  /// supabase auth exceptions — including 500-series retryable ones — are
+  /// converted to AppAuthException before they leave this method.
   @override
   Future<void> sendEmailOtp(String email) async {
     try {
-      // First attempt: user should already exist in auth.users.
+      // Primary attempt: user should already exist in auth.users.
       await _client.auth.signInWithOtp(
         email: email,
         shouldCreateUser: false,
       );
-    } on AuthApiException catch (firstError) {
+    } on AuthException catch (firstError) {
+      // AuthException is the base class for ALL gotrue exceptions:
+      //   AuthApiException (4xx), AuthRetryableFetchException (5xx),
+      //   AuthUnknownException, AuthSessionMissingException, etc.
+      // Catching it here means nothing can escape uncaught.
       debugPrint(
-          '=== sendEmailOtp(shouldCreateUser:false) failed: '
-          '${firstError.message} [${firstError.statusCode}]');
+        '=== sendEmailOtp(shouldCreateUser:false) failed: '
+        '${firstError.runtimeType}: ${firstError.message} '
+        '[statusCode: ${firstError.statusCode}]',
+      );
 
-      // If the error indicates the user was not found (Supabase returns
-      // statusCode 422 for "User not found" with shouldCreateUser:false),
-      // retry allowing user creation.  This handles management-inserted
-      // profiles that have no corresponding auth.users row yet.
+      // 422 from Supabase means the email is not in auth.users yet
+      // (management-created profiles that never went through normal sign-up).
+      // Retry allowing user creation so Supabase creates the auth account.
       final isUserNotFound = firstError.statusCode == '422' ||
-          (firstError.message.toLowerCase().contains('not found') ||
-           firstError.message.toLowerCase().contains('not registered'));
+          firstError.message.toLowerCase().contains('not found') ||
+          firstError.message.toLowerCase().contains('not registered') ||
+          firstError.message.toLowerCase().contains('user not found');
 
       if (isUserNotFound) {
         debugPrint('=== Retrying sendEmailOtp with shouldCreateUser:true');
@@ -163,22 +179,35 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
             email: email,
             shouldCreateUser: true,
           );
-          return; // success on retry
-        } on AuthApiException catch (retryError) {
+          return; // success on retry — exit cleanly
+        } on AuthException catch (retryError) {
           throw app_exceptions.AppAuthException(
             message: retryError.message,
             code: retryError.code,
             originalError: retryError,
           );
+        } catch (retryFallback) {
+          throw app_exceptions.AppAuthException(
+            message: 'Failed to send OTP: ${retryFallback.toString()}',
+            originalError: retryFallback,
+          );
         }
       }
 
-      // For any other error (e.g. 500 "Error sending magic link email")
-      // propagate it so the BLoC can decide what to do.
+      // Any other error (incl. 500 "Error sending magic link email"):
+      // convert to AppAuthException so the repository returns Result.failure
+      // and the bloc can handle it gracefully (navigate to OTP screen + Resend).
       throw app_exceptions.AppAuthException(
         message: firstError.message,
         code: firstError.code,
         originalError: firstError,
+      );
+    } catch (e) {
+      // Belt-and-braces: catch absolutely anything that isn't AuthException.
+      if (e is app_exceptions.AppAuthException) rethrow;
+      throw app_exceptions.AppAuthException(
+        message: 'Failed to send verification code: ${e.toString()}',
+        originalError: e,
       );
     }
   }
@@ -202,19 +231,16 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
       }
 
       await _client.auth.refreshSession();
-    } on AuthApiException catch (e) {
+    } on app_exceptions.AppAuthException {
+      rethrow;
+    } on AuthException catch (e) {
+      // Catches AuthApiException, AuthRetryableFetchException, etc.
       throw app_exceptions.AppAuthException(
         message: e.message,
         code: e.code,
         originalError: e,
       );
-    } on AuthException catch (e) {
-      throw app_exceptions.AppAuthException(
-        message: e.message,
-        originalError: e,
-      );
     } catch (e) {
-      if (e is app_exceptions.AppAuthException) rethrow;
       throw app_exceptions.AppAuthException(
         message: 'Verification failed: ${e.toString()}',
         originalError: e,
@@ -227,8 +253,7 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
     try {
       final userId = _client.auth.currentUser?.id;
       if (userId == null) {
-        throw const app_exceptions.AppAuthException(
-            message: 'Not authenticated');
+        throw const app_exceptions.AppAuthException(message: 'Not authenticated');
       }
 
       final profile = await _client
@@ -239,13 +264,14 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
 
       final phone = profile['phone'] as String?;
       if (phone == null || phone.isEmpty) {
-        throw const app_exceptions.AppAuthException(
-            message: 'No phone number on file');
+        throw const app_exceptions.AppAuthException(message: 'No phone number on file');
       }
 
       await _client.auth.signInWithOtp(phone: phone);
       return phone;
-    } on AuthApiException catch (e) {
+    } on app_exceptions.AppAuthException {
+      rethrow;
+    } on AuthException catch (e) {
       throw app_exceptions.AppAuthException(
         message: e.message,
         code: e.code,
@@ -265,8 +291,7 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
     try {
       final userId = _client.auth.currentUser?.id;
       if (userId == null) {
-        throw const app_exceptions.AppAuthException(
-            message: 'Not authenticated');
+        throw const app_exceptions.AppAuthException(message: 'Not authenticated');
       }
 
       final profile = await _client
@@ -277,8 +302,7 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
 
       final phone = profile['phone'] as String?;
       if (phone == null || phone.isEmpty) {
-        throw const app_exceptions.AppAuthException(
-            message: 'No phone number on file');
+        throw const app_exceptions.AppAuthException(message: 'No phone number on file');
       }
 
       await _client.auth.verifyOTP(
@@ -290,7 +314,9 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
       await _client.from('profiles').update({
         'two_factor_enabled': true,
       }).eq('id', userId);
-    } on AuthApiException catch (e) {
+    } on app_exceptions.AppAuthException {
+      rethrow;
+    } on AuthException catch (e) {
       throw app_exceptions.AppAuthException(
         message: e.message,
         code: e.code,
@@ -319,7 +345,7 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
           'two_factor_enabled': false,
         }).eq('id', userId);
       }
-    } on AuthApiException catch (e) {
+    } on AuthException catch (e) {
       throw app_exceptions.AppAuthException(
         message: e.message,
         code: e.code,
@@ -360,7 +386,7 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
   Future<void> refreshSession() async {
     try {
       await _client.auth.refreshSession();
-    } on AuthApiException catch (e) {
+    } on AuthException catch (e) {
       throw app_exceptions.AppAuthException(
         message: e.message,
         code: e.code,
@@ -378,8 +404,7 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
     try {
       final userId = _client.auth.currentUser?.id;
       if (userId == null) {
-        throw const app_exceptions.AppAuthException(
-            message: 'Not authenticated');
+        throw const app_exceptions.AppAuthException(message: 'Not authenticated');
       }
 
       final updates = <String, dynamic>{};
@@ -401,10 +426,8 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
   @override
   Future<void> updateEmail(String newEmail) async {
     try {
-      await _client.auth.updateUser(
-        UserAttributes(email: newEmail),
-      );
-    } on AuthApiException catch (e) {
+      await _client.auth.updateUser(UserAttributes(email: newEmail));
+    } on AuthException catch (e) {
       throw app_exceptions.AppAuthException(
         message: e.message,
         code: e.code,
@@ -435,8 +458,8 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
           .single();
 
       final currentUser = _client.auth.currentUser;
-      final isEmailVerified = currentUser?.id == userId &&
-          currentUser?.emailConfirmedAt != null;
+      final isEmailVerified =
+          currentUser?.id == userId && currentUser?.emailConfirmedAt != null;
 
       return UserModel.fromJson(response, isEmailVerified: isEmailVerified);
     } on PostgrestException catch (e) {
@@ -519,7 +542,7 @@ class SupabaseAuthDataSource implements AuthRemoteDataSource {
         message: e.reasonPhrase ?? 'Auto sign-in failed',
         originalError: e,
       );
-    } on AuthApiException catch (e) {
+    } on AuthException catch (e) {
       throw app_exceptions.AppAuthException(
         message: e.message,
         code: e.code,
