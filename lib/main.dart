@@ -1,5 +1,3 @@
-import 'package:device_preview/device_preview.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -43,12 +41,7 @@ Future<void> main() async {
     await configureDependencies();
 
     // Run the app
-    runApp(
-      DevicePreview(
-        enabled: !kReleaseMode,
-        builder: (context) => const SalienaApp(),
-      ),
-    );
+    runApp(const SalienaApp());
   } catch (e, stackTrace) {
     // Show error screen if initialization fails
     debugPrint('Initialization error: $e');

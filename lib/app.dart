@@ -1,4 +1,3 @@
-import 'package:device_preview/device_preview.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -30,11 +29,8 @@ class SalienaApp extends StatelessWidget {
       child: BlocBuilder<SettingsBloc, SettingsState>(
         builder: (context, settingsState) {
           if (settingsState.isLoading) {
-            return MaterialApp(
-              useInheritedMediaQuery: true,
-              locale: DevicePreview.locale(context),
-              builder: DevicePreview.appBuilder,
-              home: const Scaffold(
+            return const MaterialApp(
+              home: Scaffold(
                 body: Center(
                   child: CircularProgressIndicator(),
                 ),
@@ -48,10 +44,7 @@ class SalienaApp extends StatelessWidget {
             // Routing
             routerConfig: appRouter,
 
-            // Device Preview
-            useInheritedMediaQuery: true,
-            locale: DevicePreview.locale(context) ?? settingsState.locale,
-            builder: DevicePreview.appBuilder,
+            locale: settingsState.locale,
 
             // Localization
             supportedLocales: AppLocalizations.supportedLocales,

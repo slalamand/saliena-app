@@ -1,9 +1,20 @@
 /// Environment configuration loader.
 /// All secrets are loaded at compile-time via --dart-define-from-file=.env
+/// Falls back to embedded defaults so the app works when run directly from Xcode.
 abstract class Env {
-  static const String supabaseUrl = String.fromEnvironment('SUPABASE_URL', defaultValue: '');
-  static const String supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: '');
-  static const String appEnv = String.fromEnvironment('APP_ENV', defaultValue: 'development');
+  static const String supabaseUrl = String.fromEnvironment(
+    'SUPABASE_URL',
+    defaultValue: 'https://eaydzmsghcylzryfezab.supabase.co',
+  );
+  static const String supabaseAnonKey = String.fromEnvironment(
+    'SUPABASE_ANON_KEY',
+    defaultValue:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVheWR6bXNnaGN5bHpyeWZlemFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMTcyMjYsImV4cCI6MjA5MDg5MzIyNn0.3zeesDSnXRE1_bWdBMIJm-vsH2g9rJNuAVctlm6wAxw',
+  );
+  static const String appEnv = String.fromEnvironment(
+    'APP_ENV',
+    defaultValue: 'production',
+  );
 
   static bool get isDevelopment => appEnv == 'development';
   static bool get isProduction => appEnv == 'production';
@@ -19,7 +30,6 @@ abstract class Env {
     if (supabaseAnonKey.isEmpty || supabaseAnonKey.contains('your-anon-key')) {
       missing.add('SUPABASE_ANON_KEY');
     }
-    // Note: No Google Maps API key needed - using OpenStreetMap
 
     if (missing.isNotEmpty) {
       throw EnvironmentException(
